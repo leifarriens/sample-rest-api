@@ -1,23 +1,30 @@
-FROM golang:1.22.1-alpine AS build-stage
+FROM node:20-alpine AS base
 
+FROM base AS builder
+
+RUN apk add --no-cache gcompat
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY package*json tsconfig.json src ./
 
-RUN go mod download
+RUN npm ci
 
-COPY . .
+COPY src ./
 
-RUN go build -x -o /sample-rest-api .
+RUN npm run build && \
+    npm prune --production
 
-FROM gcr.io/distroless/base-debian11 AS build-release-stage
+FROM base AS runner
+WORKDIR /app
 
-WORKDIR /
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 hono
 
-COPY --from=build-stage ./sample-rest-api ./sample-rest-api
+COPY --from=builder --chown=hono:nodejs /app/node_modules /app/node_modules
+COPY --from=builder --chown=hono:nodejs /app/dist /app/dist
+COPY --from=builder --chown=hono:nodejs /app/package.json /app/package.json
 
-ENV ENVIRONMENT=container
+USER hono
+EXPOSE 3000
 
-EXPOSE 1323
-
-CMD ["./sample-rest-api"]
+CMD ["node", "/app/dist/index.js"]
