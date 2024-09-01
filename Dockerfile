@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /sample-rest-api .
+RUN go build -x -o /sample-rest-api .
 
 FROM gcr.io/distroless/base-debian11 AS build-release-stage
 
